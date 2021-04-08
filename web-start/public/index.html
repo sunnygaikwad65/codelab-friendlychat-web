@@ -121,7 +121,11 @@
           Sign-out
         </button>
                     <button id="sign-in" class="mdl-button mdl-js-button mdl-js-ripple-effect mdl-color-text--white">
-          <i class="material-icons">account_circle</i>Sign-in with Google
+          <i class="material-icons">account_circle</i>Sign-in 
+          <!-- with Google -->
+        </button>
+                    <button id="admin-sign-in" class="mdl-button mdl-js-button mdl-js-ripple-effect mdl-color-text--white">
+          <i class="material-icons">account_circle</i>Admin Sign-in
         </button>
                 </div>
             </div>
@@ -129,9 +133,12 @@
 
         <main class="mdl-layout__content mdl-color--grey-100">
             <div id="messages-card-container" class="mdl-cell mdl-cell--12-col mdl-grid">
-
+                <div style="width: 100%;">
+                    <input type="text" id="new-username" class="mdl-textfield__input" style="width: 33%;">
+                </div>
                 <!-- Messages container -->
                 <div id="messages-card" class="mdl-card mdl-shadow--2dp mdl-cell mdl-cell--12-col mdl-cell--6-col-tablet mdl-cell--6-col-desktop">
+
                     <div class="mdl-card__supporting-text mdl-color-text--grey-600">
                         <div id="messages">
                         </div>
@@ -156,6 +163,12 @@
                 <div id="must-signin-snackbar" class="mdl-js-snackbar mdl-snackbar">
                     <div class="mdl-snackbar__text"></div>
                     <button class="mdl-snackbar__action" type="button"></button>
+                </div>
+
+                <div style="float: right;width: 200px;">
+                    <ul id="user-list">
+
+                    </ul>
                 </div>
 
             </div>

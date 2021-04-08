@@ -15,14 +15,46 @@
  */
 'use strict';
 
+let adminSelectedUserId;
 // Signs-in Friendly Chat.
 function signIn() {
     // alert('TODO: Implement Google Sign-In');
     // TODO 1: Sign in Firebase with credential from the Google user.
     // Sign into Firebase using popup auth & Google as the identity provider.
-    var provider = new firebase.auth.GoogleAuthProvider();
-    firebase.auth().signInWithPopup(provider);
+    // var provider = new firebase.auth.GoogleAuthProvider();
+    // firebase.auth().signInWithPopup(provider);
+
+    firebase.auth().signInAnonymously()
+        .then((user) => {
+            // Signed in..
+            console.log("--------", user);
+            loadMessages();
+        })
+        .catch((error) => {
+            console.log("ERR".error)
+            var errorCode = error.code;
+            var errorMessage = error.message;
+            // ...
+        });
+
 }
+
+function signInWithEmailAndPassword(email, password) {
+    firebase.auth().signInWithEmailAndPassword(email, password)
+        .then((userCredential) => {
+            console.log("userCredential", userCredential);
+            // Signed in
+            var user = userCredential.user;
+            loadChatsForAdmin();
+        })
+        .catch((error) => {
+            console.log("error", error);
+            var errorCode = error.code;
+            var errorMessage = error.message;
+        });
+
+}
+
 
 // Signs-out of Friendly Chat.
 function signOut() {
@@ -60,32 +92,99 @@ function isUserSignedIn() {
 function saveMessage(messageText) {
     // TODO 7: Push a new message to Firebase.
     // Add a new message entry to the database.
-    return firebase.firestore().collection('messages').add({
-        name: getUserName(),
-        text: messageText,
-        profilePicUrl: getProfilePicUrl(),
-        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-    }).catch(function(error) {
-        console.error('Error writing new message to database', error);
-    });
+    let docId = firebase.auth().currentUser.uid;
+    if (firebase.auth().currentUser.email == 'info@affixus.com') {
+        docId = adminSelectedUserId;
+    }
+    if (docId && docId != null && docId != '') {
+        if (firebase.auth().currentUser.email == 'info@affixus.com') {
+            sendAdminMessages(docId, messageText);
+        } else {
+            return firebase.firestore().collection('messages')
+                .doc(docId)
+                .set({
+                    name: getUserName() ? getUserName() : newUserNameElement.value,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true })
+                .then(function(docRef) {
+                    console.log("====", docRef);
+                    firebase.firestore().collection('messages')
+                        .doc(docId)
+                        .collection('messageList')
+                        .add({
+                            sender_id: firebase.auth().currentUser.uid,
+                            name: getUserName() ? getUserName() : newUserNameElement.value,
+                            text: messageText,
+                            profilePicUrl: getProfilePicUrl(),
+                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                        })
+                })
+                // .collection('messageList')
+                // .add({
+                //     sender_id: firebase.auth().currentUser.uid,
+                //     name: getUserName() ? getUserName() : newUserNameElement.value,
+                //     text: messageText,
+                //     profilePicUrl: getProfilePicUrl(),
+                //     timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                // })
+                .catch(function(error) {
+                    console.error('Error writing new message to database', error);
+                });
+        }
+
+    } else {
+        var data = {
+            message: 'Please select user',
+            timeout: 2000
+        };
+        signInSnackbarElement.MaterialSnackbar.showSnackbar(data);
+
+    }
+}
+
+function sendAdminMessages(docId, messageText) {
+    return firebase.firestore().collection('messages')
+        .doc(docId)
+        .collection('messageList')
+        .add({
+            sender_id: firebase.auth().currentUser.uid,
+            name: getUserName() ? getUserName() : newUserNameElement.value,
+            text: messageText,
+            profilePicUrl: getProfilePicUrl(),
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        }).then(function(docRef) {
+            firebase.firestore().collection('messages').doc(docId).update({
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            resetMaterialTextfield(messageInputElement);
+            toggleButton();
+        })
+        .catch(function(error) {
+            console.error('Error writing new message to database', error);
+        });
 }
 
 // Loads chat messages history and listens for upcoming ones.
 function loadMessages() {
-    // TODO 8: Load and listens for new messages.
-    // Create the query to load the last 12 messages and listen for new ones.
+    console.log("loadmessages")
+        // TODO 8: Load and listens for new messages.
+        // Create the query to load the last 12 messages and listen for new ones.
     var query = firebase.firestore()
         .collection('messages')
-        .orderBy('timestamp', 'desc')
-        .limit(12);
+        .doc(firebase.auth().currentUser.uid)
+        .collection('messageList')
+        .orderBy('timestamp', 'asc')
+        .limit(1200);
 
     // Start listening to the query.
     query.onSnapshot(function(snapshot) {
+        console.log("loadMessages snapshot called");
         snapshot.docChanges().forEach(function(change) {
             if (change.type === 'removed') {
                 deleteMessage(change.doc.id);
             } else {
                 var message = change.doc.data();
+                console.log(message.timestamp.toDate());
                 displayMessage(change.doc.id, message.timestamp, message.name,
                     message.text, message.profilePicUrl, message.imageUrl);
             }
@@ -93,13 +192,81 @@ function loadMessages() {
     });
 }
 
+
+
+function displayChatRoomsToAdmin(id, name) {
+    let liId = 'li' + id;
+    if (document.getElementById(liId) == null || document.getElementById(liId) == '') {
+
+        var li = document.createElement('li');
+        li.onclick = function() {
+            loadUserMessages(id)
+        };
+        li.setAttribute('class', 'item');
+        li.setAttribute('id', liId);
+        li.innerHTML = name;
+        userListElement.appendChild(li);
+    }
+
+}
+
+function loadUserMessages(id) {
+    messageListElement.innerHTML = '';
+    adminSelectedUserId = id;
+    var query = firebase.firestore()
+        .collection('messages')
+        .doc(id)
+        .collection('messageList')
+        .orderBy('timestamp', 'asc')
+        .limit(1200);
+
+    // Start listening to the query.
+    query.onSnapshot(function(snapshot) {
+        console.log("loadUserMessages snapshot called");
+        snapshot.docChanges().forEach(function(change) {
+            if (change.type === 'removed') {
+                deleteMessage(change.doc.id);
+            } else {
+                var message = change.doc.data();
+
+                console.log(message.timestamp.toDate());
+                displayMessage(change.doc.id, message.timestamp, message.name,
+                    message.text, message.profilePicUrl, message.imageUrl);
+            }
+        });
+    });
+}
+
+function loadChatsForAdmin() {
+    var query = firebase.firestore()
+        .collection('messages')
+        .orderBy('timestamp', 'asc');
+
+    // Start listening to the query.
+    query.onSnapshot(function(snapshot) {
+        console.log("loadChatsForAdmin snapshot called");
+        snapshot.docChanges().forEach(function(change) {
+            console.log("CHANGE", change.doc.id, change.doc.data())
+                // if (change.type === 'removed') {
+                //     deleteMessage(change.doc.id);
+                // } else {
+                //     var message = change.doc.data();
+                //     displayMessage(change.doc.id, message.timestamp, message.name,
+                //         message.text, message.profilePicUrl, message.imageUrl);
+                // }
+            var message = change.doc.data();
+            displayChatRoomsToAdmin(change.doc.id, message.name);
+        });
+    });
+}
 // Saves a new message containing an image in Firebase.
 // This first saves the image in Firebase storage.
 function saveImageMessage(file) {
     // TODO 9: Posts a new image as a message.
     // 1 - We add a message with a loading icon that will get updated with the shared image.
-    firebase.firestore().collection('messages').add({
-        name: getUserName(),
+    firebase.firestore().collection('messages').doc(firebase.auth().currentUser.uid).collection('messageList').add({
+        sender_id: firebase.auth().currentUser.uid,
+        name: getUserName() ? getUserName() : newUserNameElement.value,
         imageUrl: LOADING_IMAGE_URL,
         profilePicUrl: getProfilePicUrl(),
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
@@ -196,7 +363,7 @@ function authStateObserver(user) {
 
         // Set the user's profile pic and name.
         userPicElement.style.backgroundImage = 'url(' + addSizeToGoogleProfilePic(profilePicUrl) + ')';
-        userNameElement.textContent = userName;
+        userNameElement.textContent = userName ? userName : '' + firebase.auth().currentUser.uid;
 
         // Show user's profile and sign-out button.
         userNameElement.removeAttribute('hidden');
@@ -205,9 +372,15 @@ function authStateObserver(user) {
 
         // Hide sign-in button.
         signInButtonElement.setAttribute('hidden', 'true');
+        adminSignInButtonElement.setAttribute('hidden', 'true');
 
         // We save the Firebase Messaging Device token and enable notifications.
         saveMessagingDeviceToken();
+        if (firebase.auth().currentUser.email == 'info@affixus.com') {
+            loadChatsForAdmin();
+        } else {
+            loadMessages();
+        }
     } else { // User is signed out!
         // Hide user's profile and sign-out button.
         userNameElement.setAttribute('hidden', 'true');
@@ -216,6 +389,7 @@ function authStateObserver(user) {
 
         // Show sign-in button.
         signInButtonElement.removeAttribute('hidden');
+        adminSignInButtonElement.removeAttribute('hidden');
     }
 }
 
@@ -376,10 +550,20 @@ var signInButtonElement = document.getElementById('sign-in');
 var signOutButtonElement = document.getElementById('sign-out');
 var signInSnackbarElement = document.getElementById('must-signin-snackbar');
 
+var newUserNameElement = document.getElementById('new-username');
+// newUserNameElement.value = 'test';
+var adminSignInButtonElement = document.getElementById('admin-sign-in');
+var userListElement = document.getElementById('user-list')
+
 // Saves message on form submit.
 messageFormElement.addEventListener('submit', onMessageFormSubmit);
 signOutButtonElement.addEventListener('click', signOut);
 signInButtonElement.addEventListener('click', signIn);
+
+//adminSignInButtonElement.addEventListener('click', signInWithEmailAndPassword('info@affixus.com', 'affixus@123'));
+adminSignInButtonElement.onclick = function() {
+    signInWithEmailAndPassword('info@affixus.com', 'affixus@123');
+};
 
 // Toggle for the button.
 messageInputElement.addEventListener('keyup', toggleButton);
@@ -398,5 +582,10 @@ initFirebaseAuth();
 // TODO: Enable Firebase Performance Monitoring.
 firebase.performance();
 
+if (isUserSignedIn() == false) {
+    // signIn();
+}
+
+
 // We load currently existing chat messages and listen to new ones.
-loadMessages();
+//loadMessages();
