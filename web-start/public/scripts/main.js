@@ -27,11 +27,9 @@ function signIn() {
     firebase.auth().signInAnonymously()
         .then((user) => {
             // Signed in..
-            console.log("--------", user);
             loadMessages();
         })
         .catch((error) => {
-            console.log("ERR".error)
             var errorCode = error.code;
             var errorMessage = error.message;
             // ...
@@ -42,13 +40,11 @@ function signIn() {
 function signInWithEmailAndPassword(email, password) {
     firebase.auth().signInWithEmailAndPassword(email, password)
         .then((userCredential) => {
-            console.log("userCredential", userCredential);
             // Signed in
             var user = userCredential.user;
             loadChatsForAdmin();
         })
         .catch((error) => {
-            console.log("error", error);
             var errorCode = error.code;
             var errorMessage = error.message;
         });
@@ -107,7 +103,6 @@ function saveMessage(messageText) {
                     timestamp: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true })
                 .then(function(docRef) {
-                    console.log("====", docRef);
                     firebase.firestore().collection('messages')
                         .doc(docId)
                         .collection('messageList')
@@ -184,7 +179,6 @@ function loadMessages() {
                 deleteMessage(change.doc.id);
             } else {
                 var message = change.doc.data();
-                console.log(message.timestamp.toDate());
                 displayMessage(change.doc.id, message.timestamp, message.name,
                     message.text, message.profilePicUrl, message.imageUrl);
             }
@@ -229,7 +223,6 @@ function loadUserMessages(id) {
             } else {
                 var message = change.doc.data();
 
-                console.log(message.timestamp.toDate());
                 displayMessage(change.doc.id, message.timestamp, message.name,
                     message.text, message.profilePicUrl, message.imageUrl);
             }
