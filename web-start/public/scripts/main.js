@@ -337,8 +337,6 @@ function authStateObserver(user) {
         signInButtonElement.setAttribute('hidden', 'true');
         adminSignInButtonElement.setAttribute('hidden', 'true');
 
-        // We save the Firebase Messaging Device token and enable notifications.
-        saveMessagingDeviceToken();
         if (firebase.auth().currentUser.email == 'info@affixus.com') {
             loadChatsForAdmin();
         } else {
