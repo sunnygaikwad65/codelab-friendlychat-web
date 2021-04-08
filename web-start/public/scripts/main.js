@@ -103,7 +103,7 @@ function saveMessage(messageText) {
                     timestamp: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true })
                 .then(function(docRef) {
-                    firebase.firestore().collection('messages')
+                    return firebase.firestore().collection('messages')
                         .doc(docId)
                         .collection('messageList')
                         .add({
@@ -112,6 +112,8 @@ function saveMessage(messageText) {
                             text: messageText,
                             profilePicUrl: getProfilePicUrl(),
                             timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                        }).then(function(msgRef) {
+                            console.log('MSGREF', msgRef)
                         })
                 })
                 // .collection('messageList')
@@ -255,30 +257,86 @@ function loadChatsForAdmin() {
 // Saves a new message containing an image in Firebase.
 // This first saves the image in Firebase storage.
 function saveImageMessage(file) {
-    // TODO 9: Posts a new image as a message.
-    // 1 - We add a message with a loading icon that will get updated with the shared image.
-    firebase.firestore().collection('messages').doc(firebase.auth().currentUser.uid).collection('messageList').add({
-        sender_id: firebase.auth().currentUser.uid,
-        name: getUserName() ? getUserName() : newUserNameElement.value,
-        imageUrl: LOADING_IMAGE_URL,
-        profilePicUrl: getProfilePicUrl(),
-        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-    }).then(function(messageRef) {
-        // 2 - Upload the image to Cloud Storage.
-        var filePath = firebase.auth().currentUser.uid + '/' + messageRef.id + '/' + file.name;
-        return firebase.storage().ref(filePath).put(file).then(function(fileSnapshot) {
-            // 3 - Generate a public URL for the file.
-            return fileSnapshot.ref.getDownloadURL().then((url) => {
-                // 4 - Update the chat message placeholder with the image's URL.
-                return messageRef.update({
-                    imageUrl: url,
-                    storageUri: fileSnapshot.metadata.fullPath
+    let docId = firebase.auth().currentUser.uid;
+    if (firebase.auth().currentUser.email == 'info@affixus.com') {
+        docId = adminSelectedUserId;
+    }
+    if (docId && docId != null && docId != '') {
+        if (firebase.auth().currentUser.email == 'info@affixus.com') {
+            sendAdminImageMessages(file, docId);
+        } else {
+            return firebase.firestore().collection('messages')
+                .doc(docId)
+                .set({
+                    name: getUserName() ? getUserName() : newUserNameElement.value,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true })
+                .then(function(docRef) {
+                    return firebase.firestore().collection('messages')
+                        .doc(docId)
+                        .collection('messageList')
+                        .add({
+                            sender_id: firebase.auth().currentUser.uid,
+                            name: getUserName() ? getUserName() : newUserNameElement.value,
+                            imageUrl: LOADING_IMAGE_URL,
+                            profilePicUrl: getProfilePicUrl(),
+                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                        }).then(function(messageRef) {
+                            // 2 - Upload the image to Cloud Storage.
+                            var filePath = firebase.auth().currentUser.uid + '/' + messageRef.id + '/' + file.name;
+                            return firebase.storage().ref(filePath).put(file).then(function(fileSnapshot) {
+                                // 3 - Generate a public URL for the file.
+                                return fileSnapshot.ref.getDownloadURL().then((url) => {
+                                    // 4 - Update the chat message placeholder with the image's URL.
+                                    return messageRef.update({
+                                        imageUrl: url,
+                                        storageUri: fileSnapshot.metadata.fullPath
+                                    });
+                                });
+                            });
+                        })
+                })
+                .catch(function(error) {
+                    console.error('Error writing new message to database', error);
+                });
+        }
+
+    } else {
+        var data = {
+            message: 'Please select user',
+            timeout: 2000
+        };
+        signInSnackbarElement.MaterialSnackbar.showSnackbar(data);
+
+    }
+}
+
+
+function sendAdminImageMessages(file, docId) {
+    return firebase.firestore().collection('messages')
+        .doc(docId)
+        .collection('messageList').add({
+            sender_id: firebase.auth().currentUser.uid,
+            name: getUserName() ? getUserName() : newUserNameElement.value,
+            imageUrl: LOADING_IMAGE_URL,
+            profilePicUrl: getProfilePicUrl(),
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        }).then(function(messageRef) {
+            // 2 - Upload the image to Cloud Storage.
+            var filePath = firebase.auth().currentUser.uid + '/' + messageRef.id + '/' + file.name;
+            return firebase.storage().ref(filePath).put(file).then(function(fileSnapshot) {
+                // 3 - Generate a public URL for the file.
+                return fileSnapshot.ref.getDownloadURL().then((url) => {
+                    // 4 - Update the chat message placeholder with the image's URL.
+                    return messageRef.update({
+                        imageUrl: url,
+                        storageUri: fileSnapshot.metadata.fullPath
+                    });
                 });
             });
+        }).catch(function(error) {
+            console.error('There was an error uploading a file to Cloud Storage:', error);
         });
-    }).catch(function(error) {
-        console.error('There was an error uploading a file to Cloud Storage:', error);
-    });
 }
 
 // Triggered when a file is selected via the media picker.
